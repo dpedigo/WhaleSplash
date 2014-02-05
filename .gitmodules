@@ -1,0 +1,3 @@
+[submodule "external/wtl"]
+	path = external/wtl
+	url = git://github.com/dpedigo/wtl.git
