@@ -31,6 +31,7 @@ public:
 
 	LRESULT OnPaint(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
     {
+		bHandled = FALSE;
         if ( GetItemCount() == 0 )
         {
 			int nLength = lstrlen(m_szStatus);
@@ -53,9 +54,11 @@ public:
                 handle.DrawText(m_szStatus, -1, &rectClient, DT_CENTER | DT_SINGLELINE | DT_VCENTER);
                 
 				EndPaint(&ps);
+				bHandled = TRUE;
+				return 0;
             }
         }
 
-		return 0;
+		return 1;
     }
 };

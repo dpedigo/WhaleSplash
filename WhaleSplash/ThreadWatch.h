@@ -8,16 +8,18 @@ class CThreadWatch : public CThreadImpl<CThreadWatch>
 {
 private:
 	HWND m_hWndStatus;
-	UINT m_uLifePercent;
+	UINT m_uExitPercent;
 	bool m_bLife;
+	bool m_bMapHack;
 
 protected:
 	void SendPlayerStatus(DWORD dwStatusCode);
-	void SendPlayerExperience(PLAYEREXPERIENCE* pExperience);
+	void SendPlayerExp(PLAYEREXP* pExp);
 
 public:
 	CThreadWatch();
 	DWORD Run();
 
-	void Configure(HWND hWndStatus, UINT uLifePercent, bool bLife);
+	void Configure(HWND hWndStatus, UINT uExitPercent, bool bLife, bool bMapHack);
+	void EnableMapHack(bool bEnable);
 };

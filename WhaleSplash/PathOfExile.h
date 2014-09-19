@@ -2,47 +2,61 @@
 
 #include "Process.h"
 
-
-typedef struct _PLAYERSTATS {
+typedef struct _PLAYERHEALTH {
 	DWORD MaxHP;
-	DWORD CurrentHP;
+	DWORD CurHP;
 	DWORD ReservedHPFlat;
 	DWORD ReservedHPPercent;
 	BYTE Unknown1[20];
 	DWORD MaxMana;
-	DWORD CurrentMana;
+	DWORD CurtMana;
 	DWORD ReservedManaFlat;
 	DWORD ReservedManaPercent;
 	BYTE Unknown2[20];
 	DWORD MaxShield;
-	DWORD CurrentShield;
-} PLAYERSTATS;
+	DWORD CurShield;
+} PLAYERHEALTH;
 
-
-typedef struct _PLAYEREXPERIENCE {
+typedef struct _PLAYEREXP {
 	DWORD Minimum;
 	DWORD Current;
 	DWORD Maximum;
 	DWORD CurrentLevel;
-} PLAYEREXPERIENCE;
+} PLAYEREXP;
 
 
 class CPathOfExile : public CProcess
 {
+private:
+	static const TCHAR* s_ProcessName;
+	static const DWORD  s_BaseOffset;
+	static const char*  s_BaseMask;
+	static const BYTE   s_BaseSignature[];
+	static const char*  s_MapMask;
+	static const BYTE   s_MapSignature[];
+	static const DWORD  s_ExperienceThresholds[];
+
 protected:
 	DWORD m_dwModuleSize;
 	DWORD m_dwModuleAddress;
-	DWORD m_dwBaseManager;
-	DWORD m_dwHeroManager;
-	bool m_bIsSteamProcess;
+
+	DWORD m_dwManagerBase;
+
+	bool m_bWriteAccess;
 
 public:
 	CPathOfExile();
 	~CPathOfExile();
 
-	BOOL Attach();
+	bool Attach(bool bWriteAccess = false);
 
-	BOOL IsInGame();
-	BOOL GetPlayerStats(PLAYERSTATS* stats);
-	BOOL GetPlayerExperience(PLAYEREXPERIENCE* exp);
+	DWORD GetGameBase();
+	DWORD GetPlayerBase();
+
+	bool IsInGame();
+
+	bool GetPlayerHealth(PLAYERHEALTH* health);
+	bool GetPlayerExp(PLAYEREXP* exp);
+
+	bool EnableMapHack(bool bEnable);
 };

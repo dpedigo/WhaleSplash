@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "DlgMain.h"
+#include "MainDialog.h"
 
 CAppModule _Module;
 

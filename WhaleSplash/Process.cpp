@@ -5,9 +5,6 @@
 #include <tlhelp32.h>
 #pragma comment(lib, "psapi.lib")
 
-#define PAGE_SIZE 8192
-
-
 CProcess::CProcess() : m_hProcess(NULL)
 {
 
@@ -19,96 +16,91 @@ CProcess::~CProcess()
 	if ( m_hProcess != NULL )
 	{
 		CloseHandle(m_hProcess);
-		m_hProcess = NULL;
 	}
 }
 
 
-BOOL CProcess::Open(DWORD dwProcessId, DWORD dwDesiredAccess, BOOL bInheritHandle)
+bool CProcess::Open(DWORD dwProcessId, DWORD dwDesiredAccess, BOOL bInheritHandle)
 {
 	m_hProcess = OpenProcess(dwDesiredAccess, bInheritHandle, dwProcessId);
-	return (m_hProcess != NULL) ? TRUE : FALSE;
+	return (m_hProcess != NULL) ? true : false;
 }
 
 
-BOOL CProcess::ReadMemory(DWORD dwBaseAddress, LPVOID lpBuffer, DWORD dwSize)
+bool CProcess::ReadMemory(DWORD dwBaseAddress, LPVOID lpBuffer, DWORD dwSize)
 {
 	DWORD dwBytesRead = 0;
 	BOOL bResult = ReadProcessMemory(m_hProcess, (LPCVOID)dwBaseAddress, lpBuffer, dwSize, &dwBytesRead);
-	return (bResult && dwSize == dwBytesRead) ? TRUE : FALSE;
+	return (bResult && dwSize == dwBytesRead) ? true : false;
 }
 
 
-BOOL CProcess::IsRunning()
+bool CProcess::WriteMemory(DWORD dwBaseAddress, LPCVOID lpBuffer, DWORD dwSize)
+{
+	DWORD dwBytesWritten = 0;
+	BOOL bResult = WriteProcessMemory(m_hProcess, (LPVOID)dwBaseAddress, lpBuffer, dwSize, &dwBytesWritten);
+	return (bResult && dwSize == dwBytesWritten) ? true : false;
+}
+
+
+BYTE CProcess::ReadByte(DWORD dwBaseAddress)
+{
+	BYTE bValue = 0;
+	ReadMemory(dwBaseAddress, &bValue, 1);
+	return bValue;
+}
+
+
+void CProcess::WriteByte(DWORD dwAddress, BYTE bValue)
+{
+	WriteMemory(dwAddress, &bValue, 1);
+}
+
+
+DWORD CProcess::ReadDWORD(DWORD dwBaseAddress)
+{
+	DWORD dwValue = 0;
+	ReadMemory(dwBaseAddress, &dwValue, 4);
+	return dwValue;
+}
+
+
+bool CProcess::IsRunning()
 {
 	DWORD dwExitCode = 0;
 	BOOL bResult = GetExitCodeProcess(m_hProcess, &dwExitCode);
-	return (bResult && dwExitCode == STILL_ACTIVE) ? TRUE : FALSE;
+	return (bResult && dwExitCode == STILL_ACTIVE) ? true : false;
 }
 
 
-BOOL CProcess::Terminate(UINT uExitCode)
+bool CProcess::Terminate(UINT uExitCode)
 {
 	BOOL bResult = TerminateProcess(m_hProcess, uExitCode);
 	m_hProcess = NULL;
-	return bResult;
+	return bResult != 0;
 }
 
 
-DWORD CProcess::GetMultiLevelPointer(DWORD dwStartAddress, int arrOffsets[], int nOffsets)
+DWORD CProcess::FindPattern(DWORD dwStartAddress, DWORD dwSize, BYTE* bMask, const char* szMask)
 {
-	DWORD dwValue = 0;
-	DWORD dwAddress = dwStartAddress;
-	BOOL bRes = ReadMemory(dwAddress, (LPVOID)&dwValue, sizeof(dwValue));
-	if ( bRes )
+	BYTE* pBuffer = new BYTE[0x2000000];
+	ReadMemory(dwStartAddress, pBuffer, 0x2000000);
+
+	for ( int i = 0; i < 0x2000000; i += 4 )
 	{
-		for ( int i = 0 ; i < nOffsets; i++ )
+		if ( IsPatternMatch(&pBuffer[i], bMask, szMask) )
 		{
-			dwAddress = dwValue + arrOffsets[i];
-			bRes = ReadMemory(dwAddress, (LPVOID)&dwValue, sizeof(dwValue));
-			if ( !bRes )
-			{
-				return 0;
-			}
+			delete[] pBuffer;
+			return dwStartAddress + i;
 		}
-
-		return dwAddress;
-	}
-
-	return 0;
-}
-
-
-DWORD CProcess::FindPattern(DWORD dwStartAddress, DWORD dwSize, BYTE* bMask, char* szMask)
-{
-	DWORD dwBytesRead = 0;
-	DWORD dwCurrentOffset = 0;
-	DWORD dwCurrentAddress = dwStartAddress;
-
-	while ( dwCurrentOffset < dwSize )
-	{
-		BYTE bMemoryPage[PAGE_SIZE];
-		BOOL bRes = ReadProcessMemory(m_hProcess, (void*)dwCurrentAddress, (void*)&bMemoryPage, PAGE_SIZE, &dwBytesRead);
-		if ( bRes )
-		{
-			for ( DWORD dwIndex = 0; dwIndex < PAGE_SIZE; dwIndex++ )
-			{
-				if ( IsPatternMatch(&bMemoryPage[dwIndex], bMask, szMask) )
-				{
-					return dwIndex + dwCurrentAddress;
-				}
-			}
-		}
-
-		dwCurrentOffset += PAGE_SIZE;
-		dwCurrentAddress += PAGE_SIZE;
 	}
 	
+	delete[] pBuffer;
 	return 0;
 }
 
 
-bool CProcess::IsPatternMatch(BYTE* pData, BYTE* bMask, char* szMask)
+bool CProcess::IsPatternMatch(BYTE* pData, BYTE* bMask, const char* szMask)
 {
     for ( ; *szMask; ++szMask, ++pData, ++bMask )
 	{

@@ -11,17 +11,33 @@ public:
 	CProcess();
 	virtual ~CProcess();
 
-	BOOL Open(DWORD dwProcessId, DWORD dwDesiredAccess = PROCESS_DEFAULT_ACCESS, BOOL bInheritHandle = FALSE);
+	bool Open(DWORD dwProcessId, DWORD dwDesiredAccess = PROCESS_DEFAULT_ACCESS, BOOL bInheritHandle = FALSE);
 
-	BOOL ReadMemory(DWORD dwBaseAddress, LPVOID lpBuffer, DWORD dwSize);
+	bool ReadMemory(DWORD dwBaseAddress, LPVOID lpBuffer, DWORD dwSize);
+	bool WriteMemory(DWORD dwBaseAddress, LPCVOID lpBuffer, DWORD dwSize);
 
-	BOOL IsRunning();
-	BOOL Terminate(UINT uExitCode = EXIT_SUCCESS);
+	BYTE ReadByte(DWORD dwBaseAddress);
+	void WriteByte(DWORD dwBaseAddress, BYTE bValue);
 
-	DWORD GetMultiLevelPointer(DWORD dwStartAddress, int arrOffsets[], int nOffsets);
+	DWORD ReadDWORD(DWORD dwBaseAddress);
 
-	DWORD FindPattern(DWORD dwStartAddress, DWORD dwSize, BYTE* bMask, char* szMask);
-	bool IsPatternMatch(BYTE* pData, BYTE* bMask, char* szMask);
+	bool IsRunning();
+	bool Terminate(UINT uExitCode = EXIT_SUCCESS);
+
+	template<size_t N>
+	DWORD GetMultiLevelPointer32(DWORD dwStartAddress, DWORD (&arOffsets)[N])
+	{
+		DWORD address = ReadDWORD(dwStartAddress);
+		for ( int i = 0; i < N; i++ )
+		{
+			address = ReadDWORD(address + arOffsets[i]);
+		}
+
+		return address;
+	}
+
+	DWORD FindPattern(DWORD dwStartAddress, DWORD dwSize, BYTE* bMask, const char* szMask);
+	bool IsPatternMatch(BYTE* pData, BYTE* bMask, const char* szMask);
 
 	static DWORD Find(PCTSTR pszProcessName);
 	static BOOL GetModuleInfo(PCTSTR pszProcessName, DWORD dwProcessId, LPDWORD pdwBaseAddress, LPDWORD pdwBaseSize);

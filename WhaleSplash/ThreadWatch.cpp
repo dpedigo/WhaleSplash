@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "ThreadWatch.h"
 
-
-CThreadWatch::CThreadWatch()
+CThreadWatch::CThreadWatch() : m_bMapHack(false), m_hWndStatus(0)
 {
 
 }
@@ -10,6 +9,8 @@ CThreadWatch::CThreadWatch()
 
 DWORD CThreadWatch::Run()
 {
+Start:
+	bool bMapHackEnabled = false;
 	DWORD dwTicks = GetTickCount();
 
 	while ( !IsAborted() )
@@ -25,28 +26,28 @@ DWORD CThreadWatch::Run()
 
 				while ( poe.IsInGame() )
 				{
-					PLAYERSTATS stats = { 0 };
-					if ( poe.GetPlayerStats(&stats) )
+					PLAYERHEALTH health = { 0 };
+					if ( poe.GetPlayerHealth(&health) )
 					{
 						DWORD dwCurrentValue = 0;
 						DWORD dwMaximumValue = 0;
 
 						if ( m_bLife )
 						{
-							dwCurrentValue = stats.CurrentHP;
-							dwMaximumValue = stats.MaxHP;
+							dwCurrentValue = health.CurHP;
+							dwMaximumValue = health.MaxHP;
 						}
 						else
 						{
-							dwCurrentValue = stats.CurrentShield;
-							dwMaximumValue = stats.MaxShield;
+							dwCurrentValue = health.CurShield;
+							dwMaximumValue = health.MaxShield;
 						}
 
-						DWORD dwCurrentPercent = (DWORD)(((float)dwCurrentValue / (float)dwMaximumValue) * 100);
-						if ( stats.CurrentHP > 0 && m_uLifePercent > dwCurrentPercent && dwCurrentPercent > 0 )
+						DWORD dwCurrentPercent = (DWORD)(((double)dwCurrentValue / (double)dwMaximumValue) * 100);
+						if ( health.CurHP > 0 && m_uExitPercent > dwCurrentPercent && dwCurrentPercent > 0 )
 						{
 							poe.Terminate();
-							break;
+							goto Start;
 						}
 
 						// only send status once a second (give or take)
@@ -54,10 +55,10 @@ DWORD CThreadWatch::Run()
 						{
 							dwTicks = GetTickCount();
 
-							PLAYEREXPERIENCE exp = { 0 };
-							if ( poe.GetPlayerExperience(&exp) )
+							PLAYEREXP stats = { 0 };
+							if ( poe.GetPlayerExp(&stats) )
 							{
-								SendPlayerExperience(&exp);
+								SendPlayerExp(&stats);
 							}
 							else
 							{
@@ -70,22 +71,27 @@ DWORD CThreadWatch::Run()
 						SendPlayerStatus(STATUS_NO_STATS);
 					}
 
-					if ( IsAborted() )
+					
+					if ( bMapHackEnabled != m_bMapHack )
 					{
-						goto Exit;
+						EnableMapHack(m_bMapHack);
+						bMapHackEnabled = m_bMapHack;
 					}
+
+					if ( IsAborted() )
+						goto Exit;
 
 					Sleep(200);
 				}
 
 				if ( IsAborted() )
-				{
 					goto Exit;
-				}
 
 				Sleep(200);
 			}
 		}
+
+		bMapHackEnabled = false;
 
 		Sleep(1000);
 	}
@@ -107,22 +113,33 @@ void CThreadWatch::SendPlayerStatus(DWORD dwStatusCode)
 }
 
 
-void CThreadWatch::SendPlayerExperience(PLAYEREXPERIENCE* pExperience)
+void CThreadWatch::SendPlayerExp(PLAYEREXP* pExp)
 {
-	PLAYEREXPERIENCE* pSendExp = NULL;
-	if ( pExperience )
+	PLAYEREXP* pSendExp = NULL;
+	if ( pExp )
 	{
-		pSendExp = new PLAYEREXPERIENCE;
-		memcpy(pSendExp, pExperience, sizeof(PLAYEREXPERIENCE));
+		pSendExp = new PLAYEREXP;
+		memcpy(pSendExp, pExp, sizeof(PLAYEREXP));
 	}
 
 	PostMessage(m_hWndStatus, WM_PLAYER_UPDATE, (WPARAM)PLAYER_UPDATE_EXP, (LPARAM)pSendExp);
 }
 
 
-void CThreadWatch::Configure(HWND hWndStatus, UINT uLifePercent, bool bLife)
+void CThreadWatch::Configure(HWND hWndStatus, UINT uExitPercent, bool bLife, bool bMapHack)
 {
 	m_hWndStatus = hWndStatus;
-	m_uLifePercent = uLifePercent;
+	m_uExitPercent = uExitPercent;
 	m_bLife = bLife;
+	m_bMapHack = bMapHack;
+}
+
+
+void CThreadWatch::EnableMapHack(bool bEnable)
+{
+	CPathOfExile poe;
+	if ( poe.Attach(true) )
+	{
+		poe.EnableMapHack(bEnable);
+	}
 }
